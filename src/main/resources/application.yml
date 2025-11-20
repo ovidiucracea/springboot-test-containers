@@ -1,0 +1,12 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: update
+  datasource:
+    driver-class-name: org.postgresql.Driver
+
+aws:
+  region: us-east-1
+  endpoint: http://localhost:4566
+  access-key: local
+  secret-key: local
