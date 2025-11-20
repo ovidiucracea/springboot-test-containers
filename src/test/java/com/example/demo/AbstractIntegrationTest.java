@@ -4,8 +4,10 @@ import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
 
+import com.example.demo.repository.NotificationRecordRepository;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import org.junit.jupiter.api.BeforeEach;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -15,6 +17,13 @@ import org.testcontainers.containers.localstack.LocalStackContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
+import software.amazon.awssdk.services.sns.SnsClient;
+import software.amazon.awssdk.services.sns.model.DeleteTopicRequest;
+import software.amazon.awssdk.services.sns.model.ListSubscriptionsResponse;
+import software.amazon.awssdk.services.sns.model.ListTopicsResponse;
+import software.amazon.awssdk.services.sqs.SqsClient;
+import software.amazon.awssdk.services.sqs.model.DeleteQueueRequest;
+import software.amazon.awssdk.services.sqs.model.ListQueuesResponse;
 
 @Testcontainers
 @SpringBootTest
@@ -39,6 +48,15 @@ public abstract class AbstractIntegrationTest {
         WIREMOCK.start();
     }
 
+    @Autowired
+    private NotificationRecordRepository notificationRecordRepository;
+
+    @Autowired
+    private SqsClient sqsClient;
+
+    @Autowired
+    private SnsClient snsClient;
+
     @BeforeEach
     void stubDefaultThirdPartyStatus() {
         WireMock wireMock = new WireMock(WIREMOCK.getHost(), WIREMOCK.getMappedPort(8080));
@@ -47,6 +65,11 @@ public abstract class AbstractIntegrationTest {
                 .willReturn(aResponse()
                         .withHeader("Content-Type", "application/json")
                         .withBody("{\"status\":\"READY\"}")));
+
+        notificationRecordRepository.deleteAll();
+
+        clearSnsResources();
+        clearSqsResources();
     }
 
     @DynamicPropertySource
@@ -66,5 +89,29 @@ public abstract class AbstractIntegrationTest {
 
     protected static WireMockContainer wireMockContainer() {
         return WIREMOCK;
+    }
+
+    private void clearSnsResources() {
+        ListSubscriptionsResponse subscriptions = snsClient.listSubscriptions();
+        if (subscriptions.hasSubscriptions()) {
+            subscriptions.subscriptions().forEach(subscription -> snsClient.unsubscribe(builder -> builder
+                    .subscriptionArn(subscription.subscriptionArn())));
+        }
+
+        ListTopicsResponse topics = snsClient.listTopics();
+        if (topics.hasTopics()) {
+            topics.topics().forEach(topic -> snsClient.deleteTopic(DeleteTopicRequest.builder()
+                    .topicArn(topic.topicArn())
+                    .build()));
+        }
+    }
+
+    private void clearSqsResources() {
+        ListQueuesResponse queues = sqsClient.listQueues();
+        if (queues.hasQueueUrls()) {
+            queues.queueUrls().forEach(queueUrl -> sqsClient.deleteQueue(DeleteQueueRequest.builder()
+                    .queueUrl(queueUrl)
+                    .build()));
+        }
     }
 }
