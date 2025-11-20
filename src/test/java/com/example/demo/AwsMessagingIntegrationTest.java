@@ -8,6 +8,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import com.example.demo.service.OrderStatusPublisher;
 import software.amazon.awssdk.services.sns.SnsClient;
 import software.amazon.awssdk.services.sns.model.CreateTopicRequest;
 import software.amazon.awssdk.services.sns.model.SubscribeRequest;
@@ -24,6 +25,9 @@ class AwsMessagingIntegrationTest extends AbstractIntegrationTest {
 
     @Autowired
     private SqsClient sqsClient;
+
+    @Autowired
+    private OrderStatusPublisher orderStatusPublisher;
 
     @Test
     void publishesToSnsAndFanOutToSqs() {
@@ -48,7 +52,7 @@ class AwsMessagingIntegrationTest extends AbstractIntegrationTest {
                 .endpoint(queueArn)
                 .build());
 
-        snsClient.publish(builder -> builder.topicArn(topicArn).message("hello from sns"));
+        orderStatusPublisher.publishIfReady("42", topicArn);
 
         List<Message> messages = sqsClient.receiveMessage(ReceiveMessageRequest.builder()
                         .queueUrl(queueUrl)
@@ -60,6 +64,6 @@ class AwsMessagingIntegrationTest extends AbstractIntegrationTest {
         assertThat(messages)
                 .singleElement()
                 .extracting(Message::body)
-                .isEqualTo("hello from sns");
+                .isEqualTo("Order 42 is READY");
     }
 }

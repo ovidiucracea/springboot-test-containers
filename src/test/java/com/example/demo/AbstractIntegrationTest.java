@@ -1,11 +1,17 @@
 package com.example.demo;
 
+import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.get;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
+
+import com.github.tomakehurst.wiremock.client.WireMock;
+import org.junit.jupiter.api.BeforeEach;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.containers.localstack.LocalStackContainer;
 import org.testcontainers.containers.WireMockContainer;
+import org.testcontainers.containers.localstack.LocalStackContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
@@ -31,6 +37,16 @@ public abstract class AbstractIntegrationTest {
         POSTGRES.start();
         LOCALSTACK.start();
         WIREMOCK.start();
+    }
+
+    @BeforeEach
+    void stubDefaultThirdPartyStatus() {
+        WireMock wireMock = new WireMock(WIREMOCK.getHost(), WIREMOCK.getMappedPort(8080));
+        wireMock.resetAll();
+        wireMock.register(get(urlPathMatching("/orders/.*/status"))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("{\"status\":\"READY\"}")));
     }
 
     @DynamicPropertySource
