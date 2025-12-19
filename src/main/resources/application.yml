@@ -1,12 +1,22 @@
 spring:
-  jpa:
-    hibernate:
-      ddl-auto: update
-  datasource:
-    driver-class-name: org.postgresql.Driver
+  application:
+    name: data-aggregator
+  threads:
+    virtual:
+      enabled: true
 
-aws:
-  region: us-east-1
-  endpoint: http://localhost:4566
-  access-key: local
-  secret-key: local
+aggregator:
+  clients:
+    user-service-base-url: https://api.example.com
+    order-service-base-url: https://orders.example.com
+    preference-graphql-url: https://preferences.example.com/graphql
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
