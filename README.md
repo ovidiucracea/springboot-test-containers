@@ -1,17 +1,40 @@
-# springboot-test-containers
+# Data Aggregator with Spring Boot
 
-This sample shows how to share long-lived Testcontainers instances across Spring Boot integration tests.
+This project demonstrates a production-ready Spring Boot 3.3 application that aggregates data from multiple downstream services. It uses:
 
-## Container lifecycle
-- `AbstractIntegrationTest` declares PostgreSQL and LocalStack containers as `static @Container` fields and starts them in a static block. That means they are started once per JVM and reused by every test class, avoiding container recreation for each test method or class.
-- The containers still shut down when the JVM exits. You do not need to call `.withReuse(true)` for this intra-run reuse; that flag only matters when you want to reuse containers across JVM invocations (and requires `~/.testcontainers.properties` to enable reuse).
-- Because tests target container endpoints via Spring's dynamic properties, no additional reuse configuration is required for the sample to keep the same containers during the test suite.
+- Spring MVC with the new `RestClient` for HTTP calls
+- `HttpGraphQlClient` for GraphQL queries
+- Virtual threads and structured concurrency on Java 21 for efficient parallel IO
+- Actuator health probes and validation for robust operations
 
-## Running tests
-Run the integration tests with
+## How it works
+
+The `ProfileController` exposes `GET /api/profiles/{userId}/summary`, which concurrently:
+
+1. Fetches a user profile from a REST service
+2. Fetches order history from a second REST service
+3. Fetches user preferences from a GraphQL endpoint
+
+Results are combined into a single JSON payload returned to the caller.
+
+The aggregation work runs in virtual threads managed by Java's `StructuredTaskScope`,
+which enforces a three-second deadline across all downstream calls. Each REST client
+is configured with short connect/read timeouts to keep requests responsive even when
+dependencies slow down.
+
+## Running locally
+
+1. Adjust downstream endpoints in `src/main/resources/application.yml`.
+2. Build and run the application:
+
+```bash
+mvn spring-boot:run
+```
+
+## Testing
+
+Run the lightweight Spring Boot context test with:
 
 ```bash
 mvn test
 ```
-
-If external Maven repositories are blocked, you may need network access to download dependencies on the first run.
